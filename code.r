@@ -17,7 +17,7 @@ glimpse(data)
 
 data <- read_csv("COVIDlatestdata.csv")
 
-# Important Trends for Different Countries
+# 1 Important Trends for Different Countries
 plot.country <- function(country){
   tsc.long <- tsc %>%
     filter(Country.Region==country) %>%
@@ -55,9 +55,10 @@ melt(tsc.five, id.vars="date", variable_name="country") %>%
   ggplot(aes(x=date(date), y=value, col=country)) +
   geom_line() +
   labs(x="Date", y="Cases", title=paste("Daily Total Cases"))
+ggsave("TrimeTrends.png")
 
 
-# 2
+# 2 What important time trends are evident in key states/cities within US
 state_us <- filter(data, grepl("Cali", province) | grepl("New York", province) | grepl("Maryland", province) | grepl("New Jersey", province))
 state_us["date_confirmation"] <- as.Date(sapply(state_us[["date_confirmation"]], gsub, pattern="\\.", replacement="/"), format = c("%d/%m/%Y"))
 
@@ -66,16 +67,21 @@ state_us %>%
   summarize(count=n()) %>%
   ggplot(aes(x=date_confirmation, y=count, col=province)) +
   geom_point() +
-  labs(x="Date", y="Cases", title=paste("Daily Total Cases of US"))
+  labs(x="Date", y="Cases", title=paste("Daily US by Province"))
+ggsave("TrendByProvince.png")
+
+
+# 3 Gender Difference
 
 data %>%
   filter(country %in% c("Finland", "Turkey", "United States", "Colombia", "Thailand")) %>%
   filter(!is.na(sex)) %>%
   ggplot(aes(x=country, fill=sex)) +
-  geom_bar(position="fill")
+  geom_bar(position="fill")+
+  ggtitle("Geder Composition")
+ggsave("GenderComposition.png")
 
-
-#3
+# 4  Increasing Pattern
 datanew <- data %>% 
   mutate(date_confirmation = dmy(data$date_confirmation))
 
@@ -92,9 +98,9 @@ datanew %>% group_by(date_confirmation) %>%
   ggtitle("Cumulative Covid Cases") +
   transition_reveal(cum)
 
-anim_save()
+anim_save("Cumulative")
 
-# 4
+# 5 Geographic Patterns
 usa <- data %>%
   filter(country=="United States")
 
@@ -102,80 +108,40 @@ usa <- usa %>%
   group_by(province) %>%
   summarise(count=n())
 
-data <- merge(s, usa,
-              by.x="region",
-              by.y="province")
-
 usa$province <- tolower(usa$province)
 
-data <- merge(s, usa,
+data.plot <- merge(s, usa,
               by.x="region",
               by.y="province")
 
-ggplot(data, aes(x=long, y=lat, group=group, fill=count)) +
+ggplot(data.plot, aes(x=long, y=lat, group=group, fill=count)) +
   geom_polygon(color="gray") +
   coord_map("polyconic") +
-  scale_fill_gradient(low="white", high="blue")
+  scale_fill_gradient(low="white", high="blue") +
+  ggtitle("Geographic Composition")
+ggsave("GeographicComposition.png")
 
 
 
-usa <- data %>% filter(country == 'United States', province %in% c("California",  "Nevada"))
-usa <- usa %>% group_by(city, province, longitude, latitude) %>% 
-  summarise(count = n()) %>% 
+
+usa <- data %>% 
+  filter(country=='United States') %>%
+  group_by(city, province, longitude, latitude) %>%
+  summarise(count = n()) %>%
   arrange(desc(count))
 
-mycolor <- colorFactor(palette = c('red', 'blue'),
-                       levels = c('New Jersey', 'Delaware'))
+pal <- colorFactor(
+  palette = alphabet(26),
+  domain = as.factor(usa$province))
 
 
-map <- na.omit(usa) %>% leaflet() %>% 
-  addProviderTiles('HERE') %>% 
-  addCircleMarkers(radius = 5,
-                   color = ~mycolor(province),
-                   popup = ~paste0(city, "<br/>",
-                                   count),
-                   label = ~paste0(city, "(", province, ")"))
-map
-
-
-CA <- filter(usa, province == "California")
-NV <- filter(usa, province == "Nevada")
-leaflet() %>%  
-  addTiles(group = 'OpenRailwayMap') %>% 
-  addProviderTiles('HERE', group = 'terrainDay') %>% 
+usa %>%
+  leaflet() %>%
+  addTiles(group = 'OpenRailwayMap') %>%
+  addProviderTiles('HERE', group = 'terrainDay') %>%
   addProviderTiles("HikeBike", group = "HikeBike") %>%
-  addCircleMarkers(data = CA,
-                   radius = 2,
-                   popup = ~paste0(city, "<br/>",
-                                   count),
-                   label = ~paste0(city, "(", province, ")"),
-                   group =  "California",
-                   color = 'blue') %>% 
-  addCircleMarkers(data = NV,
-                   radius = 2,
-                   group = "Nevada",
-                   color = 'red',
-                   label = ~paste0(city, "(", province, ")"),
-                   popup = ~paste0(city, "<br/>",
-                                   count)) %>%   
-  addLayersControl(baseGroups = c('OpenRailwayMap', "terrainDay", 'HikeBike'),
-                   overlayGroups = c("California", "Nevada") )%>% 
-  setView(lng = -119, lat = 36.2,
-          zoom = 5.5)
-
-
-# datanew$day <- day(datanew$date_confirmation)
-# datanew$month <- month(datanew$date_confirmation)
-# 
-# new <- datanew %>% filter(month==3) %>%
-#   group_by(day, country) %>%
-#   summarise(count=n())
-# 
-# new <- as.data.frame(complete(new, day, country, fill=list(count=0)))
-# new %>% filter(country=="United States" | country == "France" | country == "United Kingdom") %>%
-#   ggplot(aes(x=day, y = count)) +
-#   geom_line() +
-#   geom_point() +
-#   theme_bw() +
-#   transition_reveal(day)
-# anim_save("test")
+  addCircleMarkers(~longitude, ~latitude, color=~pal(as.factor(province)), radius=1)%>%
+  addLayersControl(baseGroup=c('OpenRailwayMap', "terrainDay", 'HikeBike'),
+                   overlayGroups=unique(usa$province)) %>%
+  setView(lng =-85, lat = 32,
+                  zoom = 5.5)
