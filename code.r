@@ -99,6 +99,8 @@ datanew %>% group_by(date_confirmation) %>%
 anim_save("Cumulative")
 
 # 5 Geographic Patterns
+data <- read_csv("COVIDlatestdata.csv")
+
 usa <- data %>%
   filter(country=="United States")
 
