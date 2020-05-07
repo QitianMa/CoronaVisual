@@ -3,7 +3,7 @@ library(covid19.analytics)
 library(lubridate)
 library(reshape)
 library(gganimate)
-
+library(pals)
 library(leaflet)
 library(ggmap)
 library(leaflet.extras)
@@ -13,8 +13,6 @@ library(mapproj)
 
 ag <- covid19.data(case="aggregated")
 tsc <- covid19.data(case="ts-confirmed")
-glimpse(data)
-
 data <- read_csv("COVIDlatestdata.csv")
 
 # 1 Important Trends for Different Countries
@@ -140,7 +138,8 @@ usa %>%
   addTiles(group = 'OpenRailwayMap') %>%
   addProviderTiles('HERE', group = 'terrainDay') %>%
   addProviderTiles("HikeBike", group = "HikeBike") %>%
-  addCircleMarkers(~longitude, ~latitude, color=~pal(as.factor(province)), radius=1)%>%
+  addCircleMarkers(~longitude, ~latitude, color=~pal(as.factor(province)), radius=1, popup = ~paste0(city, "<br/>", count),
+                   label = ~paste0(city, "(", province, ")")) %>%
   addLayersControl(baseGroup=c('OpenRailwayMap', "terrainDay", 'HikeBike'),
                    overlayGroups=unique(usa$province)) %>%
   setView(lng =-85, lat = 32,
